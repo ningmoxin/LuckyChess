@@ -1,0 +1,1807 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎊 尾牙棋子大賽 🎊</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --gold: #FFD700;
+            --gold-dark: #B8860B;
+            --red: #E74C3C;
+            --bg-dark: #1a1a2e;
+            --bg-darker: #0f0f1a;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: var(--bg-dark);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* 背景動畫 */
+        .background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(255, 215, 0, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(231, 76, 60, 0.1) 0%, transparent 50%),
+                linear-gradient(135deg, var(--bg-darker) 0%, var(--bg-dark) 50%, #16213e 100%);
+        }
+
+        .sparkles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .sparkle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--gold);
+            border-radius: 50%;
+            animation: sparkle 3s ease-in-out infinite;
+        }
+
+        @keyframes sparkle {
+            0%, 100% { opacity: 0; transform: scale(0); }
+            50% { opacity: 1; transform: scale(1); }
+        }
+
+        /* 標題區 */
+        .header {
+            text-align: center;
+            padding: 30px 20px;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--gold) 0%, #fff 50%, var(--gold) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 40px rgba(255, 215, 0, 0.5);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.5)); }
+            to { filter: drop-shadow(0 0 40px rgba(255, 215, 0, 0.8)); }
+        }
+
+        .round-info {
+            font-size: 1.5rem;
+            color: var(--gold);
+            margin-top: 15px;
+            font-weight: 700;
+        }
+
+        .round-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--red), #c0392b);
+            padding: 10px 30px;
+            border-radius: 50px;
+            margin-top: 10px;
+            font-size: 1.2rem;
+            color: white;
+            box-shadow: 0 4px 20px rgba(231, 76, 60, 0.5);
+        }
+
+        /* 主遊戲區 */
+        .game-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* 輪次記錄區（主要區塊） */
+        .rounds-display {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            backdrop-filter: blur(10px);
+            min-height: 200px;
+        }
+
+        .rounds-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .round-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .round-card.current {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(231, 76, 60, 0.2));
+            border: 2px solid var(--gold);
+            transform: scale(1.02);
+            box-shadow: 0 10px 40px rgba(255, 215, 0, 0.3);
+        }
+
+        .round-card.past {
+            opacity: 0.7;
+        }
+
+        .round-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .round-title {
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: white;
+        }
+
+        .round-card.current .round-title {
+            font-size: 1.6rem;
+            color: var(--gold);
+        }
+
+        .round-total {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--gold);
+            background: rgba(255, 215, 0, 0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+
+        .round-card.current .round-total {
+            font-size: 1.4rem;
+            padding: 8px 20px;
+        }
+
+        .round-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .round-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 15px;
+            border-radius: 25px;
+        }
+
+        .round-card.current .round-chip {
+            padding: 12px 20px;
+        }
+
+        .round-chip-color {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            box-shadow: 
+                0 3px 10px rgba(0, 0, 0, 0.3),
+                inset 0 -2px 5px rgba(0, 0, 0, 0.2),
+                inset 0 2px 5px rgba(255, 255, 255, 0.3);
+        }
+
+        .round-card.current .round-chip-color {
+            width: 40px;
+            height: 40px;
+        }
+
+        .round-chip-score {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        .round-card.current .round-chip-score {
+            font-size: 1.4rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.5);
+            padding: 60px 20px;
+            font-size: 1.2rem;
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        /* 顏色總分摘要（小型） */
+        .color-summary {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        .summary-title {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1rem;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .summary-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .summary-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px 15px;
+            border-radius: 20px;
+            opacity: 0.5;
+        }
+
+        .summary-item.has-score {
+            opacity: 1;
+            background: rgba(255, 215, 0, 0.1);
+        }
+
+        .summary-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            box-shadow: 
+                0 2px 5px rgba(0, 0, 0, 0.3),
+                inset 0 -1px 3px rgba(0, 0, 0, 0.2),
+                inset 0 1px 3px rgba(255, 255, 255, 0.3);
+        }
+
+        .summary-name {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .summary-score {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--gold);
+            margin-left: auto;
+        }
+
+        /* Checkbox 樣式 */
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.95rem;
+            user-select: none;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            display: none;
+        }
+
+        .checkbox-custom {
+            width: 24px;
+            height: 24px;
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            border-radius: 6px;
+            background: rgba(0, 0, 0, 0.3);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
+            background: var(--gold);
+            border-color: var(--gold);
+        }
+
+        .checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #1a1a2e;
+            font-size: 16px;
+            font-weight: 900;
+        }
+
+        .mode-description {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.8);
+            border-left: 3px solid var(--gold);
+        }
+
+        .mode-description .mode-title {
+            color: var(--gold);
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .mode-description .mode-example {
+            color: #3498db;
+            margin-top: 8px;
+            font-size: 0.85rem;
+        }
+
+        /* 顏色定義 */
+        .color-red { background: linear-gradient(145deg, #e74c3c, #c0392b); }
+        .color-blue { background: linear-gradient(145deg, #3498db, #2980b9); }
+        .color-green { background: linear-gradient(145deg, #2ecc71, #27ae60); }
+        .color-yellow { background: linear-gradient(145deg, #f1c40f, #f39c12); }
+        .color-purple { background: linear-gradient(145deg, #9b59b6, #8e44ad); }
+        .color-orange { background: linear-gradient(145deg, #e67e22, #d35400); }
+        .color-pink { background: linear-gradient(145deg, #fd79a8, #e84393); }
+        .color-cyan { background: linear-gradient(145deg, #00cec9, #0984e3); }
+
+        /* 歷史記錄區 */
+        /* 管理員區 */
+        .admin-section {
+            background: linear-gradient(135deg, rgba(231, 76, 60, 0.1), rgba(255, 215, 0, 0.1));
+            border-radius: 20px;
+            padding: 25px;
+            border: 2px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .admin-title {
+            color: var(--gold);
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .admin-login {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .admin-login input {
+            padding: 12px 20px;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            font-size: 1rem;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .admin-login input:focus {
+            outline: none;
+            border-color: var(--gold);
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border-radius: 10px;
+            border: none;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            color: #1a1a2e;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--red), #c0392b);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(231, 76, 60, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            color: white;
+        }
+
+        .btn-run {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            font-size: 1.5rem;
+            padding: 20px 60px;
+            border-radius: 15px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .btn-run:hover {
+            animation: none;
+            transform: scale(1.05);
+            box-shadow: 0 10px 40px rgba(231, 76, 60, 0.5);
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7); }
+            50% { box-shadow: 0 0 0 15px rgba(231, 76, 60, 0); }
+        }
+
+        .admin-controls {
+            display: none;
+        }
+
+        .admin-controls.active {
+            display: block;
+        }
+
+        .control-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group label {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.95rem;
+        }
+
+        .control-group input {
+            width: 80px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            font-size: 1rem;
+            text-align: center;
+        }
+
+        .control-group input:focus {
+            outline: none;
+            border-color: var(--gold);
+        }
+
+        .run-section {
+            text-align: center;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            margin-top: 20px;
+        }
+
+        .chips-preview {
+            margin-top: 15px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.95rem;
+        }
+
+        /* 遊戲結束畫面 */
+        .game-over {
+            text-align: center;
+            padding: 40px;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(231, 76, 60, 0.2));
+            border-radius: 20px;
+            margin-top: 20px;
+        }
+
+        .game-over h2 {
+            font-size: 2.5rem;
+            color: var(--gold);
+            margin-bottom: 20px;
+        }
+
+        .final-scores {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .final-score-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px 15px;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .final-score-chip {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            box-shadow: 
+                0 5px 20px rgba(0, 0, 0, 0.3),
+                inset 0 -3px 10px rgba(0, 0, 0, 0.2),
+                inset 0 3px 10px rgba(255, 255, 255, 0.3);
+        }
+
+        .final-score-name {
+            color: white;
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        .final-score-value {
+            color: var(--gold);
+            font-size: 1.5rem;
+            font-weight: 900;
+        }
+        
+        @media (max-width: 600px) {
+            .final-scores {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* 狀態訊息 */
+        .status-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 25px;
+            border-radius: 50px;
+            color: white;
+            font-size: 0.9rem;
+            z-index: 100;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .status-bar.connected {
+            border-color: #2ecc71;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+            background: #e74c3c;
+        }
+
+        .status-bar.connected .status-dot {
+            background: #2ecc71;
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* RWD */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .chips-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .btn-run {
+                width: 100%;
+                padding: 15px;
+                font-size: 1.2rem;
+            }
+
+            .control-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .control-group {
+                justify-content: space-between;
+            }
+        }
+
+        /* 隱藏 Firebase 配置提示 */
+        .setup-notice {
+            background: linear-gradient(135deg, rgba(52, 152, 219, 0.2), rgba(155, 89, 182, 0.2));
+            border: 2px solid rgba(52, 152, 219, 0.5);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .setup-notice h3 {
+            color: #3498db;
+            margin-bottom: 15px;
+        }
+
+        .setup-notice code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 8px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        .setup-notice ol {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .setup-notice li {
+            margin-bottom: 8px;
+        }
+
+        /* 動畫遮罩 */
+        .animation-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .animation-overlay.active {
+            display: flex;
+        }
+
+        .animation-container {
+            text-align: center;
+            width: 90%;
+            max-width: 800px;
+        }
+
+        .animation-title {
+            font-size: 3rem;
+            font-weight: 900;
+            color: var(--gold);
+            margin-bottom: 40px;
+            text-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+            animation: titlePulse 1s ease-in-out infinite;
+        }
+
+        @keyframes titlePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .animation-stage {
+            position: relative;
+            height: 300px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            padding: 20px;
+        }
+
+        .rolling-chip {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: white;
+            text-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+            box-shadow: 
+                0 8px 30px rgba(0, 0, 0, 0.5),
+                inset 0 -4px 15px rgba(0, 0, 0, 0.3),
+                inset 0 4px 15px rgba(255, 255, 255, 0.3);
+            opacity: 0;
+            transform: translateY(-100px) rotate(0deg);
+        }
+
+        .rolling-chip.rolling {
+            animation: chipRoll 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+
+        .rolling-chip.bounce {
+            animation: chipBounce 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+        }
+
+        @keyframes chipRoll {
+            0% {
+                opacity: 0;
+                transform: translateY(-200px) rotate(-720deg) scale(0.5);
+            }
+            60% {
+                opacity: 1;
+                transform: translateY(20px) rotate(0deg) scale(1.1);
+            }
+            80% {
+                transform: translateY(-10px) rotate(10deg) scale(1);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) rotate(0deg) scale(1);
+            }
+        }
+
+        @keyframes chipBounce {
+            0% {
+                opacity: 0;
+                transform: scale(0) rotate(-180deg);
+            }
+            50% {
+                transform: scale(1.3) rotate(10deg);
+            }
+            70% {
+                transform: scale(0.9) rotate(-5deg);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) rotate(0deg);
+            }
+        }
+
+        .rolling-chip .chip-score {
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.2rem;
+            color: var(--gold);
+            opacity: 0;
+            white-space: nowrap;
+        }
+
+        .rolling-chip.show-score .chip-score {
+            animation: scoreReveal 0.5s ease-out forwards;
+        }
+
+        @keyframes scoreReveal {
+            0% {
+                opacity: 0;
+                transform: translateX(-50%) translateY(10px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        .animation-result {
+            margin-top: 40px;
+            font-size: 1.5rem;
+            color: white;
+            opacity: 0;
+        }
+
+        .animation-result.show {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        /* 大型棋子樣式 */
+        .rolling-chip.color-red { background: linear-gradient(145deg, #e74c3c, #c0392b); }
+        .rolling-chip.color-blue { background: linear-gradient(145deg, #3498db, #2980b9); }
+        .rolling-chip.color-green { background: linear-gradient(145deg, #2ecc71, #27ae60); }
+        .rolling-chip.color-yellow { background: linear-gradient(145deg, #f1c40f, #f39c12); }
+        .rolling-chip.color-purple { background: linear-gradient(145deg, #9b59b6, #8e44ad); }
+        .rolling-chip.color-orange { background: linear-gradient(145deg, #e67e22, #d35400); }
+        .rolling-chip.color-pink { background: linear-gradient(145deg, #fd79a8, #e84393); }
+        .rolling-chip.color-cyan { background: linear-gradient(145deg, #00cec9, #0984e3); }
+    </style>
+</head>
+<body>
+    <div class="background"></div>
+    <div class="sparkles" id="sparkles"></div>
+
+    <header class="header">
+        <h1>🎊 尾牙棋子大賽 🎊</h1>
+        <div class="round-info">
+            <span id="roundStatus">準備開始</span>
+        </div>
+        <div class="round-badge" id="roundBadge">第 0 / 6 輪</div>
+    </header>
+
+    <main class="game-container">
+        <!-- Firebase 設定提示 -->
+        <div class="setup-notice" id="setupNotice" style="display: none;">
+            <h3>🔧 Firebase 設定說明</h3>
+            <p>請在程式碼中設定您的 Firebase 配置：</p>
+            <ol>
+                <li>前往 <a href="https://console.firebase.google.com" target="_blank" style="color: #3498db;">Firebase Console</a></li>
+                <li>建立新專案或使用現有專案</li>
+                <li>建立 Realtime Database（選擇測試模式）</li>
+                <li>在專案設定中取得 Web 配置</li>
+                <li>將配置貼到程式碼的 <code>firebaseConfig</code> 區塊</li>
+            </ol>
+        </div>
+
+        <!-- 輪次記錄區（主要區塊） -->
+        <section class="rounds-display">
+            <div class="rounds-grid" id="roundsGrid">
+                <!-- 動態產生輪次記錄 -->
+            </div>
+        </section>
+
+        <!-- 顏色總分摘要（小型） -->
+        <section class="color-summary" id="colorSummary">
+            <div class="summary-title">🎯 8 個棋子累計分數</div>
+            <div class="summary-grid" id="summaryGrid">
+                <!-- 動態產生 -->
+            </div>
+        </section>
+
+        <!-- 遊戲結束畫面 -->
+        <section class="game-over" id="gameOver" style="display: none;">
+            <h2>🎉 遊戲結束！🎉</h2>
+            <p style="color: white; font-size: 1.2rem;">請根據手中棋子的顏色計算您的總分！</p>
+            <div class="final-scores" id="finalScores"></div>
+        </section>
+
+        <!-- 管理員區 -->
+        <section class="admin-section">
+            <div class="admin-title">⚙️ 管理員控制台</div>
+            
+            <div class="admin-login" id="adminLogin">
+                <input type="password" id="adminPassword" placeholder="輸入管理員密碼">
+                <button class="btn btn-primary" onclick="adminLogin()">登入</button>
+            </div>
+
+            <div class="admin-controls" id="adminControls">
+                <div class="control-row">
+                    <div class="control-group">
+                        <label>總輪數：</label>
+                        <input type="number" id="totalRounds" value="6" min="1" max="20">
+                    </div>
+                    <div class="control-group">
+                        <label>起始抽取數：</label>
+                        <input type="number" id="startChips" value="3" min="1" max="8">
+                    </div>
+                    <div class="control-group">
+                        <label>每輪增加：</label>
+                        <input type="number" id="chipIncrement" value="1" min="0" max="5">
+                    </div>
+                </div>
+                
+                <div class="control-row">
+                    <div class="control-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="allowDuplicateColors" checked>
+                            <span class="checkbox-custom"></span>
+                            允許同一輪重複抽中同色棋子
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="control-row">
+                    <div class="control-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="useShuffleMode" checked>
+                            <span class="checkbox-custom"></span>
+                            洗牌模式（不重複分數）
+                        </label>
+                    </div>
+                    <button class="btn btn-primary" onclick="updateSettings()">更新設定</button>
+                </div>
+                
+                <div class="mode-description" id="modeDescription">
+                    <!-- 動態顯示模式說明 -->
+                </div>
+
+                <div class="chips-preview" id="chipsPreview">
+                    棋子數量預覽：3 → 4 → 5 → 6 → 7 → 8
+                </div>
+
+                <div class="run-section">
+                    <button class="btn btn-run" id="runBtn" onclick="executeRun()">
+                        🎲 執行 RUN 🎲
+                    </button>
+                    <p style="margin-top: 15px; color: rgba(255,255,255,0.6);" id="runHint">
+                        點擊執行下一輪抽獎
+                    </p>
+                </div>
+
+                <div class="control-row" style="margin-top: 20px; justify-content: center; gap: 20px;">
+                    <button class="btn btn-danger" onclick="resetGame()">🔄 重置遊戲</button>
+                    <button class="btn btn-primary" onclick="adminLogout()">🚪 登出</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div class="status-bar" id="statusBar">
+        <span class="status-dot"></span>
+        <span id="statusText">連線中...</span>
+    </div>
+
+    <!-- 棋子滾動動畫遮罩 -->
+    <div class="animation-overlay" id="animationOverlay">
+        <div class="animation-container">
+            <div class="animation-title" id="animationTitle">第 1 輪</div>
+            <div class="animation-stage" id="animationStage">
+                <!-- 動畫棋子會在這裡產生 -->
+            </div>
+            <div class="animation-result" id="animationResult"></div>
+        </div>
+    </div>
+
+    <script>
+        // ============ Firebase 配置 ============
+        const firebaseConfig = {
+            apiKey: "AIzaSyCB1a1HE430BxyRi1avdJtzoqlkDvtSM-o",
+            authDomain: "luckychess-cfc22.firebaseapp.com",
+            databaseURL: "https://luckychess-cfc22-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "luckychess-cfc22",
+            storageBucket: "luckychess-cfc22.firebasestorage.app",
+            messagingSenderId: "184527815910",
+            appId: "1:184527815910:web:1b2fc384f4e1e9014ae727"
+        };
+
+        // 管理員密碼（可自行修改）
+        const ADMIN_PASSWORD = "admin123";
+
+        // ============ 遊戲配置 ============
+        const COLORS = [
+            { id: 'red', name: '紅色', class: 'color-red' },
+            { id: 'blue', name: '藍色', class: 'color-blue' },
+            { id: 'green', name: '綠色', class: 'color-green' },
+            { id: 'yellow', name: '黃色', class: 'color-yellow' },
+            { id: 'purple', name: '紫色', class: 'color-purple' },
+            { id: 'orange', name: '橘色', class: 'color-orange' },
+            { id: 'pink', name: '粉紅', class: 'color-pink' },
+            { id: 'cyan', name: '青色', class: 'color-cyan' }
+        ];
+
+        // ============ 狀態管理 ============
+        let db = null;
+        let gameRef = null;
+        let isAdmin = false;
+        let useLocalMode = false;
+
+        // 預設遊戲狀態
+        const defaultGameState = {
+            currentRound: 0,
+            totalRounds: 6,
+            startChips: 3,
+            chipIncrement: 1,
+            allowDuplicateColors: true,  // 允許重複顏色
+            useShuffleMode: true,        // 使用洗牌模式（否則用 0-7 分）
+            rounds: {},
+            chips: {},
+            scorePool: [],      // 預先洗牌的分數池
+            scoreIndex: 0,      // 目前取到第幾個分數
+            lastRunTime: 0      // 最後執行 RUN 的時間（用於同步動畫）
+        };
+
+        let gameState = { ...defaultGameState };
+
+        // ============ 初始化 ============
+        function init() {
+            createSparkles();
+            renderChipsGrid();
+
+            // 檢查 Firebase 配置
+            if (firebaseConfig.apiKey === "YOUR_API_KEY") {
+                // 使用本地模式
+                useLocalMode = true;
+                document.getElementById('setupNotice').style.display = 'block';
+                initLocalMode();
+            } else {
+                // 初始化 Firebase
+                try {
+                    firebase.initializeApp(firebaseConfig);
+                    db = firebase.database();
+                    gameRef = db.ref('chessGame');
+                    initFirebase();
+                } catch (error) {
+                    console.error('Firebase 初始化失敗:', error);
+                    useLocalMode = true;
+                    document.getElementById('setupNotice').style.display = 'block';
+                    initLocalMode();
+                }
+            }
+
+            updateChipsPreview();
+            updateModeDescription();
+        }
+
+        // 本地模式初始化
+        function initLocalMode() {
+            const saved = localStorage.getItem('chessGameState');
+            if (saved) {
+                gameState = JSON.parse(saved);
+                // 避免重新整理後重播動畫
+                lastAnimatedRound = gameState.currentRound || 0;
+            }
+            updateUI();
+            setStatus(true, '本地模式');
+            
+            // 監聽本地存儲變化（跨分頁同步）
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'chessGameState') {
+                    const oldRound = gameState.currentRound;
+                    gameState = JSON.parse(e.newValue);
+                    
+                    // 檢查是否需要播放動畫
+                    if (gameState.currentRound > oldRound && gameState.currentRound > lastAnimatedRound) {
+                        checkAndPlayAnimation();
+                    } else {
+                        updateUI();
+                    }
+                }
+            });
+        }
+
+        // Firebase 模式初始化
+        function initFirebase() {
+            // 先取得一次當前狀態，設定 lastAnimatedRound
+            gameRef.once('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data && data.currentRound) {
+                    lastAnimatedRound = data.currentRound;
+                }
+            });
+            
+            gameRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    const oldRound = gameState.currentRound;
+                    gameState = { ...defaultGameState, ...data };
+                    
+                    // 檢查是否需要播放動畫（其他裝置觸發的 RUN）
+                    if (gameState.currentRound > oldRound && gameState.currentRound > lastAnimatedRound) {
+                        checkAndPlayAnimation();
+                    } else {
+                        updateUI();
+                    }
+                } else {
+                    gameState = { ...defaultGameState };
+                    gameRef.set(gameState);
+                    updateUI();
+                }
+                setStatus(true, '已連線');
+            });
+
+            // 連線狀態
+            db.ref('.info/connected').on('value', (snap) => {
+                if (snap.val() === true) {
+                    setStatus(true, '已連線');
+                } else {
+                    setStatus(false, '連線中斷');
+                }
+            });
+        }
+
+        // ============ UI 更新 ============
+        function updateUI() {
+            updateRoundDisplay();
+            updateRoundsGrid();
+            updateColorSummary();
+            updateAdminControls();
+            checkGameOver();
+        }
+
+        function updateRoundDisplay() {
+            const { currentRound, totalRounds } = gameState;
+            document.getElementById('roundBadge').textContent = `第 ${currentRound} / ${totalRounds} 輪`;
+            
+            if (currentRound === 0) {
+                document.getElementById('roundStatus').textContent = '準備開始';
+            } else if (currentRound >= totalRounds) {
+                document.getElementById('roundStatus').textContent = '🎊 遊戲結束！🎊';
+            } else {
+                document.getElementById('roundStatus').textContent = `第 ${currentRound} 輪進行中`;
+            }
+        }
+
+        function renderChipsGrid() {
+            // 不再需要，已改為輪次記錄
+        }
+
+        function updateRoundsGrid() {
+            const container = document.getElementById('roundsGrid');
+            const rounds = gameState.rounds || {};
+            const roundKeys = Object.keys(rounds).sort((a, b) => parseInt(b) - parseInt(a)); // 最新的在上面
+            
+            if (roundKeys.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🎲</div>
+                        <div>等待管理員執行 RUN 抽取棋子...</div>
+                        <div style="margin-top: 10px; font-size: 0.9rem; opacity: 0.7;">共 8 個棋子，每輪隨機抽取並賦予分數</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = roundKeys.map(roundNum => {
+                const roundData = rounds[roundNum];
+                const isCurrent = parseInt(roundNum) === gameState.currentRound;
+                const roundTotal = roundData.chips.reduce((sum, c) => sum + c.score, 0);
+                
+                // 統計同色出現次數
+                const colorCounts = {};
+                roundData.chips.forEach(chip => {
+                    if (!colorCounts[chip.color]) {
+                        colorCounts[chip.color] = [];
+                    }
+                    colorCounts[chip.color].push(chip.score);
+                });
+                
+                const chipsHtml = roundData.chips.map((chip, idx) => {
+                    const colorInfo = COLORS.find(c => c.id === chip.color);
+                    if (!colorInfo) {
+                        console.warn(`[顯示] 第${roundNum}輪第${idx+1}個找不到顏色:`, chip.color);
+                        return '';
+                    }
+                    console.log(`[顯示] 第${roundNum}輪第${idx+1}個: color=${chip.color}, class=${colorInfo.class}`);
+                    return `
+                        <div class="round-chip">
+                            <div class="round-chip-color ${colorInfo.class}"></div>
+                            <span class="round-chip-score">+${chip.score}</span>
+                        </div>
+                    `;
+                }).join('');
+                
+                return `
+                    <div class="round-card ${isCurrent ? 'current' : 'past'}">
+                        <div class="round-header">
+                            <div class="round-title">${isCurrent ? '🎯 ' : ''}第 ${roundNum} 輪${isCurrent ? ' (最新)' : ''}</div>
+                            <div class="round-total">共 +${roundTotal} 分</div>
+                        </div>
+                        <div class="round-chips">${chipsHtml}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateColorSummary() {
+            const container = document.getElementById('summaryGrid');
+            const chips = gameState.chips || {};
+            
+            container.innerHTML = COLORS.map(color => {
+                const colorChips = chips[color.id] || [];
+                const total = colorChips.reduce((sum, s) => sum + s, 0);
+                const count = colorChips.length;
+                
+                return `
+                    <div class="summary-item ${total > 0 ? 'has-score' : ''}">
+                        <div class="summary-color ${color.class}"></div>
+                        <span class="summary-name">${color.name}</span>
+                        <span class="summary-score">${total > 0 ? total + '分' : '-'}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateAdminControls() {
+            if (!isAdmin) return;
+            
+            document.getElementById('totalRounds').value = gameState.totalRounds;
+            document.getElementById('startChips').value = gameState.startChips;
+            document.getElementById('chipIncrement').value = gameState.chipIncrement;
+            document.getElementById('allowDuplicateColors').checked = gameState.allowDuplicateColors !== false;
+            document.getElementById('useShuffleMode').checked = gameState.useShuffleMode !== false;
+            
+            const runBtn = document.getElementById('runBtn');
+            const runHint = document.getElementById('runHint');
+            
+            if (gameState.currentRound >= gameState.totalRounds) {
+                runBtn.disabled = true;
+                runBtn.style.opacity = '0.5';
+                runHint.textContent = '遊戲已結束，請重置遊戲';
+            } else {
+                runBtn.disabled = false;
+                runBtn.style.opacity = '1';
+                const nextRound = gameState.currentRound + 1;
+                const nextDraws = gameState.startChips + gameState.currentRound * gameState.chipIncrement;
+                
+                // 檢查是否會超過顏色數量
+                if (!gameState.allowDuplicateColors && nextDraws > COLORS.length) {
+                    runHint.innerHTML = `<span style="color: #e74c3c;">⚠️ 第 ${nextRound} 輪要抽 ${nextDraws} 個，超過 8 種顏色！</span>`;
+                } else if (!gameState.useShuffleMode && nextDraws > 8) {
+                    runHint.innerHTML = `<span style="color: #e74c3c;">⚠️ 固定模式每輪最多 8 個，第 ${nextRound} 輪要抽 ${nextDraws} 個！</span>`;
+                } else {
+                    runHint.innerHTML = `第 ${nextRound} 輪將抽取 <b>${nextDraws}</b> 個棋子`;
+                }
+            }
+            
+            updateModeDescription();
+        }
+
+        function updateChipsPreview() {
+            const total = parseInt(document.getElementById('totalRounds').value) || 6;
+            const start = parseInt(document.getElementById('startChips').value) || 3;
+            const inc = parseInt(document.getElementById('chipIncrement').value) || 1;
+            const allowDuplicate = document.getElementById('allowDuplicateColors').checked;
+            const useShuffleMode = document.getElementById('useShuffleMode').checked;
+            
+            const preview = [];
+            let totalDraws = 0;
+            let hasColorWarning = false;
+            let hasScoreWarning = false;
+            
+            for (let i = 0; i < total; i++) {
+                const draws = start + i * inc;
+                preview.push(draws);
+                totalDraws += draws;
+                
+                // 不允許重複顏色時，每輪最多抽8個（8種顏色）
+                if (!allowDuplicate && draws > COLORS.length) {
+                    hasColorWarning = true;
+                }
+                // 固定模式時，每輪最多抽8個（0-7只有8個分數）
+                if (!useShuffleMode && draws > 8) {
+                    hasScoreWarning = true;
+                }
+            }
+            
+            let html = `每輪抽取數量：${preview.join(' → ')}<br>`;
+            
+            if (useShuffleMode) {
+                html += `<span style="color: #3498db;">🎰 洗牌模式：分數範圍 1~${totalDraws + 10}（不重複）</span>`;
+            } else {
+                html += `<span style="color: #f39c12;">🎲 固定模式：每輪 0~7 分（每輪內不重複，最多8個/輪）</span>`;
+                if (hasScoreWarning) {
+                    html += `<br><span style="color: #e74c3c;">⚠️ 警告：固定模式每輪最多 8 個！</span>`;
+                }
+            }
+            
+            html += `<br><span style="color: #2ecc71;">🎯 8 個棋子（8 種顏色各一個）</span>`;
+            
+            if (!allowDuplicate) {
+                html += `<br><span style="color: #9b59b6;">🎨 每輪同色最多抽中一次（最多 8 次/輪）</span>`;
+                if (hasColorWarning) {
+                    html += `<br><span style="color: #e74c3c;">⚠️ 警告：部分輪次抽取數超過 8 種顏色！</span>`;
+                }
+            } else {
+                html += `<br><span style="color: #f39c12;">🔄 允許同色重複抽中</span>`;
+            }
+            
+            document.getElementById('chipsPreview').innerHTML = html;
+        }
+
+        function checkGameOver() {
+            const gameOverEl = document.getElementById('gameOver');
+            const finalScoresEl = document.getElementById('finalScores');
+            
+            if (gameState.currentRound >= gameState.totalRounds && gameState.currentRound > 0) {
+                gameOverEl.style.display = 'block';
+                
+                const chips = gameState.chips || {};
+                
+                finalScoresEl.innerHTML = COLORS.map(color => {
+                    const colorChips = chips[color.id] || [];
+                    const total = colorChips.reduce((sum, s) => sum + s, 0);
+                    return `
+                        <div class="final-score-item">
+                            <div class="final-score-chip ${color.class}"></div>
+                            <div class="final-score-name">${color.name}</div>
+                            <div class="final-score-value">${total} 分</div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                gameOverEl.style.display = 'none';
+            }
+        }
+
+        // ============ 管理員功能 ============
+        function adminLogin() {
+            const password = document.getElementById('adminPassword').value;
+            if (password === ADMIN_PASSWORD) {
+                isAdmin = true;
+                document.getElementById('adminLogin').style.display = 'none';
+                document.getElementById('adminControls').classList.add('active');
+                updateAdminControls();
+            } else {
+                alert('密碼錯誤！');
+            }
+        }
+
+        function adminLogout() {
+            isAdmin = false;
+            document.getElementById('adminLogin').style.display = 'flex';
+            document.getElementById('adminControls').classList.remove('active');
+            document.getElementById('adminPassword').value = '';
+        }
+
+        function updateSettings() {
+            const totalRounds = parseInt(document.getElementById('totalRounds').value) || 6;
+            const startChips = parseInt(document.getElementById('startChips').value) || 3;
+            const chipIncrement = parseInt(document.getElementById('chipIncrement').value) || 1;
+            const allowDuplicateColors = document.getElementById('allowDuplicateColors').checked;
+            const useShuffleMode = document.getElementById('useShuffleMode').checked;
+            
+            gameState.totalRounds = totalRounds;
+            gameState.startChips = startChips;
+            gameState.chipIncrement = chipIncrement;
+            gameState.allowDuplicateColors = allowDuplicateColors;
+            gameState.useShuffleMode = useShuffleMode;
+            
+            // 如果遊戲尚未開始，清空分數池（等到第一次 RUN 時才產生）
+            if (gameState.currentRound === 0) {
+                gameState.scorePool = [];
+                gameState.scoreIndex = 0;
+            }
+            
+            saveGameState();
+            updateChipsPreview();
+            updateModeDescription();
+            updateUI();
+        }
+
+        function executeRun() {
+            if (gameState.currentRound >= gameState.totalRounds) {
+                alert('遊戲已結束！');
+                return;
+            }
+            
+            const nextRound = gameState.currentRound + 1;
+            const numChips = gameState.startChips + gameState.currentRound * gameState.chipIncrement;
+            
+            // 檢查不允許重複顏色時，抽取數是否超過顏色數
+            if (!gameState.allowDuplicateColors && numChips > COLORS.length) {
+                alert(`錯誤：第 ${nextRound} 輪要抽 ${numChips} 個，但只有 8 種顏色！\n請啟用「允許重複顏色」或減少抽取數量。`);
+                return;
+            }
+            
+            // 固定模式：檢查抽取數是否超過 8（0-7 只有 8 個分數）
+            if (!gameState.useShuffleMode && numChips > 8) {
+                alert(`錯誤：固定模式每輪最多抽 8 個（0-7 分不重複）！\n第 ${nextRound} 輪要抽 ${numChips} 個，請改用洗牌模式或減少抽取數量。`);
+                return;
+            }
+            
+            // 洗牌模式：第一輪開始時產生分數池
+            if (gameState.useShuffleMode && nextRound === 1 && (!gameState.scorePool || gameState.scorePool.length === 0)) {
+                let totalChipsNeeded = 0;
+                for (let i = 0; i < gameState.totalRounds; i++) {
+                    totalChipsNeeded += gameState.startChips + i * gameState.chipIncrement;
+                }
+                gameState.scorePool = generateShuffledScores(totalChipsNeeded);
+                gameState.scoreIndex = 0;
+            }
+            
+            // 固定模式：每輪產生一組洗好的 0-7 分數
+            let fixedScoresThisRound = [];
+            if (!gameState.useShuffleMode) {
+                fixedScoresThisRound = fisherYatesShuffle([0, 1, 2, 3, 4, 5, 6, 7]);
+            }
+            
+            // 產生隨機棋子顏色
+            const roundChips = [];
+            const usedColorIndices = new Set();
+            
+            // 決定這輪的顏色
+            const colorIndices = [];
+            for (let i = 0; i < numChips; i++) {
+                let colorIndex;
+                
+                if (gameState.allowDuplicateColors) {
+                    // 允許重複：完全隨機
+                    const randomArray = new Uint32Array(1);
+                    crypto.getRandomValues(randomArray);
+                    colorIndex = randomArray[0] % COLORS.length;
+                } else {
+                    // 不允許重複：從未使用的顏色中隨機選
+                    const availableIndices = [];
+                    for (let j = 0; j < COLORS.length; j++) {
+                        if (!usedColorIndices.has(j)) {
+                            availableIndices.push(j);
+                        }
+                    }
+                    const randomArray = new Uint32Array(1);
+                    crypto.getRandomValues(randomArray);
+                    colorIndex = availableIndices[randomArray[0] % availableIndices.length];
+                    usedColorIndices.add(colorIndex);
+                }
+                
+                colorIndices.push(colorIndex);
+            }
+            
+            for (let i = 0; i < numChips; i++) {
+                const color = COLORS[colorIndices[i]];
+                
+                // 根據模式決定分數
+                let score;
+                if (gameState.useShuffleMode) {
+                    // 洗牌模式：從分數池取不重複分數
+                    score = gameState.scorePool[gameState.scoreIndex];
+                    gameState.scoreIndex++;
+                } else {
+                    // 固定模式：從本輪洗好的 0-7 中依序取出（不重複）
+                    score = fixedScoresThisRound[i];
+                }
+                
+                console.log(`[RUN] 第${i+1}個: 顏色=${color.id}, class=${color.class}, 分數=${score}`);
+                roundChips.push({ color: color.id, score });
+                
+                // 更新 chips 狀態
+                if (!gameState.chips[color.id]) {
+                    gameState.chips[color.id] = [];
+                }
+                gameState.chips[color.id].push(score);
+            }
+            
+            console.log('[RUN] roundChips:', JSON.stringify(roundChips));
+            
+            // 記錄本輪資料，加入動畫狀態
+            if (!gameState.rounds) gameState.rounds = {};
+            gameState.rounds[nextRound] = {
+                chips: roundChips,
+                timestamp: Date.now(),
+                animating: true  // 標記正在播放動畫
+            };
+            
+            gameState.currentRound = nextRound;
+            gameState.lastRunTime = Date.now(); // 用於同步動畫
+            
+            saveGameState();
+            
+            // 播放動畫
+            playRollingAnimation(roundChips, nextRound);
+        }
+
+        function resetGame() {
+            if (!confirm('確定要重置遊戲嗎？所有資料將被清除！')) {
+                return;
+            }
+            
+            const totalRounds = parseInt(document.getElementById('totalRounds').value) || 6;
+            const startChips = parseInt(document.getElementById('startChips').value) || 3;
+            const chipIncrement = parseInt(document.getElementById('chipIncrement').value) || 1;
+            const allowDuplicateColors = document.getElementById('allowDuplicateColors').checked;
+            const useShuffleMode = document.getElementById('useShuffleMode').checked;
+            
+            // 重置為乾淨狀態，分數池清空（等到第一次 RUN 時才產生）
+            gameState = {
+                ...defaultGameState,
+                totalRounds,
+                startChips,
+                chipIncrement,
+                allowDuplicateColors,
+                useShuffleMode,
+                scorePool: [],
+                scoreIndex: 0,
+                lastRunTime: 0
+            };
+            
+            // 重置動畫計數
+            lastAnimatedRound = 0;
+            
+            saveGameState();
+            updateModeDescription();
+            updateUI();
+        }
+
+        // ============ Fisher-Yates 洗牌演算法 ============
+        // 這是最公平的隨機演算法，每個排列出現的機率完全相等
+        function fisherYatesShuffle(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                // 使用 crypto.getRandomValues 獲得更好的隨機性
+                const randomArray = new Uint32Array(1);
+                crypto.getRandomValues(randomArray);
+                const j = randomArray[0] % (i + 1);
+                
+                // 交換元素
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        // 產生洗牌後的分數池
+        function generateShuffledScores(totalNeeded) {
+            // 分數範圍：1 到 (總需求數 + 緩衝)，確保分數夠用且不會太大
+            const maxScore = Math.max(totalNeeded + 10, 20);
+            
+            // 產生連續分數陣列
+            const scores = [];
+            for (let i = 1; i <= maxScore; i++) {
+                scores.push(i);
+            }
+            
+            // 使用 Fisher-Yates 洗牌
+            return fisherYatesShuffle(scores);
+        }
+
+        // ============ 資料儲存 ============
+        function saveGameState() {
+            if (useLocalMode) {
+                localStorage.setItem('chessGameState', JSON.stringify(gameState));
+                // 觸發 storage 事件（用於跨分頁同步）
+                window.dispatchEvent(new StorageEvent('storage', {
+                    key: 'chessGameState',
+                    newValue: JSON.stringify(gameState)
+                }));
+            } else {
+                gameRef.set(gameState);
+            }
+        }
+
+        // ============ 視覺效果 ============
+        function setStatus(connected, text) {
+            const bar = document.getElementById('statusBar');
+            const textEl = document.getElementById('statusText');
+            
+            bar.className = 'status-bar' + (connected ? ' connected' : '');
+            textEl.textContent = text;
+        }
+
+        function createSparkles() {
+            const container = document.getElementById('sparkles');
+            for (let i = 0; i < 50; i++) {
+                const sparkle = document.createElement('div');
+                sparkle.className = 'sparkle';
+                sparkle.style.left = Math.random() * 100 + '%';
+                sparkle.style.top = Math.random() * 100 + '%';
+                sparkle.style.animationDelay = Math.random() * 3 + 's';
+                container.appendChild(sparkle);
+            }
+        }
+
+        function createConfetti() {
+            const colors = ['#FFD700', '#E74C3C', '#3498DB', '#2ECC71', '#9B59B6', '#F39C12'];
+            
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.style.cssText = `
+                    position: fixed;
+                    width: 10px;
+                    height: 10px;
+                    background: ${colors[Math.floor(Math.random() * colors.length)]};
+                    left: ${Math.random() * 100}%;
+                    top: -10px;
+                    border-radius: ${Math.random() > 0.5 ? '50%' : '0'};
+                    z-index: 3000;
+                    animation: confettiFall ${2 + Math.random() * 2}s linear forwards;
+                    transform: rotate(${Math.random() * 360}deg);
+                `;
+                document.body.appendChild(confetti);
+                
+                setTimeout(() => confetti.remove(), 4000);
+            }
+        }
+
+        // ============ 棋子滾動動畫 ============
+        let lastAnimatedRound = 0;
+        
+        function playRollingAnimation(chips, roundNum) {
+            const overlay = document.getElementById('animationOverlay');
+            const stage = document.getElementById('animationStage');
+            const title = document.getElementById('animationTitle');
+            const result = document.getElementById('animationResult');
+            
+            // 設定標題
+            title.textContent = `🎲 第 ${roundNum} 輪 🎲`;
+            stage.innerHTML = '';
+            result.classList.remove('show');
+            result.innerHTML = '';
+            
+            // 顯示遮罩
+            overlay.classList.add('active');
+            
+            // 依序產生滾動的棋子
+            console.log('[動畫] 收到 chips:', JSON.stringify(chips));
+            chips.forEach((chip, index) => {
+                const colorInfo = COLORS.find(c => c.id === chip.color);
+                if (!colorInfo) {
+                    console.warn('動畫找不到顏色:', chip.color, chip);
+                    return;
+                }
+                console.log(`[動畫] 第${index+1}個: color=${chip.color}, class=${colorInfo.class}, score=${chip.score}`);
+                const chipEl = document.createElement('div');
+                chipEl.className = `rolling-chip ${colorInfo.class}`;
+                chipEl.innerHTML = `
+                    <span class="chip-score">${chip.score} 分</span>
+                `;
+                stage.appendChild(chipEl);
+                
+                // 延遲播放滾動動畫
+                setTimeout(() => {
+                    chipEl.classList.add('rolling');
+                    
+                    // 滾動完成後顯示分數
+                    setTimeout(() => {
+                        chipEl.classList.add('show-score');
+                    }, 600);
+                }, index * 400);
+            });
+            
+            // 全部完成後顯示結果
+            const totalTime = chips.length * 400 + 1500;
+            setTimeout(() => {
+                // 統計本輪結果
+                const colorCounts = {};
+                chips.forEach(chip => {
+                    if (!colorCounts[chip.color]) {
+                        colorCounts[chip.color] = { count: 0, total: 0 };
+                    }
+                    colorCounts[chip.color].count++;
+                    colorCounts[chip.color].total += chip.score;
+                });
+                
+                let resultHtml = '<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px;">';
+                Object.keys(colorCounts).forEach(colorId => {
+                    const colorInfo = COLORS.find(c => c.id === colorId);
+                    if (!colorInfo) {
+                        console.warn('結果找不到顏色:', colorId);
+                        return;
+                    }
+                    const data = colorCounts[colorId];
+                    const countText = data.count > 1 ? ` ×${data.count}` : '';
+                    resultHtml += `
+                        <div style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 10px;">
+                            <span style="color: ${getColorHex(colorId)}; font-size: 1.5rem;">●</span>
+                            ${colorInfo.name}${countText}: +${data.total}分
+                        </div>
+                    `;
+                });
+                resultHtml += '</div>';
+                
+                result.innerHTML = resultHtml;
+                result.classList.add('show');
+                
+                // 播放煙火
+                createConfetti();
+                
+                // 3秒後關閉動畫
+                setTimeout(() => {
+                    overlay.classList.remove('active');
+                    updateUI();
+                }, 3000);
+            }, totalTime);
+            
+            lastAnimatedRound = roundNum;
+        }
+        
+        function getColorHex(colorId) {
+            const colorMap = {
+                red: '#e74c3c',
+                blue: '#3498db',
+                green: '#2ecc71',
+                yellow: '#f1c40f',
+                purple: '#9b59b6',
+                orange: '#e67e22',
+                pink: '#fd79a8',
+                cyan: '#00cec9'
+            };
+            return colorMap[colorId] || '#fff';
+        }
+        
+        // 檢查是否需要播放動畫（用於同步其他裝置）
+        function checkAndPlayAnimation() {
+            if (!gameState.lastRunTime) return;
+            
+            const currentRound = gameState.currentRound;
+            const roundData = gameState.rounds && gameState.rounds[currentRound];
+            
+            // 如果這一輪還沒播過動畫，且是最近5秒內發生的
+            if (roundData && currentRound > lastAnimatedRound) {
+                const timeSinceRun = Date.now() - gameState.lastRunTime;
+                if (timeSinceRun < 5000) {
+                    // 播放動畫
+                    playRollingAnimation(roundData.chips, currentRound);
+                } else {
+                    // 超過5秒就不播動畫，直接更新UI
+                    lastAnimatedRound = currentRound;
+                    updateUI();
+                }
+            }
+        }
+
+        // 添加動畫樣式
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes confettiFall {
+                to {
+                    top: 100vh;
+                    transform: rotate(${Math.random() * 720}deg);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 監聽設定變更
+        document.getElementById('totalRounds').addEventListener('input', updateChipsPreview);
+        document.getElementById('startChips').addEventListener('input', updateChipsPreview);
+        document.getElementById('chipIncrement').addEventListener('input', updateChipsPreview);
+        document.getElementById('allowDuplicateColors').addEventListener('change', updateChipsPreview);
+        document.getElementById('useShuffleMode').addEventListener('change', () => {
+            updateChipsPreview();
+            updateModeDescription();
+        });
+
+        // 更新模式說明
+        function updateModeDescription() {
+            const container = document.getElementById('modeDescription');
+            const useShuffleMode = document.getElementById('useShuffleMode').checked;
+            const total = parseInt(document.getElementById('totalRounds').value) || 6;
+            const start = parseInt(document.getElementById('startChips').value) || 3;
+            const inc = parseInt(document.getElementById('chipIncrement').value) || 1;
+            
+            let totalDraws = 0;
+            for (let i = 0; i < total; i++) {
+                totalDraws += start + i * inc;
+            }
+            
+            if (useShuffleMode) {
+                container.innerHTML = `
+                    <div class="mode-title">🎰 洗牌模式</div>
+                    <div>遊戲開始時預先洗好 ${totalDraws + 10} 個不重複分數，每次抽取依序發放。</div>
+                    <div class="mode-example">範例：第1輪可能得到 17, 3, 41 分；第2輪得到 8, 22, 5, 31 分...</div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="mode-title">🎲 固定範圍模式</div>
+                    <div>每輪從 0~7 分中洗牌抽取，同一輪內分數不重複（每輪最多 8 個）。</div>
+                    <div class="mode-example">範例：第1輪可能得到 5, 2, 7 分；第2輪得到 0, 6, 3, 1 分...</div>
+                `;
+            }
+        }
+
+        // 啟動
+        init();
+    </script>
+</body>
+</html>
