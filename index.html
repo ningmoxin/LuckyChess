@@ -367,14 +367,14 @@
         }
 
         /* 顏色定義 */
+        .color-black { background: linear-gradient(145deg, #2d2d2d, #1a1a1a); }
+        .color-white { background: linear-gradient(145deg, #ffffff, #e0e0e0); }
         .color-red { background: linear-gradient(145deg, #e74c3c, #c0392b); }
-        .color-blue { background: linear-gradient(145deg, #3498db, #2980b9); }
         .color-green { background: linear-gradient(145deg, #2ecc71, #27ae60); }
+        .color-blue { background: linear-gradient(145deg, #3498db, #2980b9); }
+        .color-pink { background: linear-gradient(145deg, #fd79a8, #e84393); }
         .color-yellow { background: linear-gradient(145deg, #f1c40f, #f39c12); }
         .color-purple { background: linear-gradient(145deg, #9b59b6, #8e44ad); }
-        .color-orange { background: linear-gradient(145deg, #e67e22, #d35400); }
-        .color-pink { background: linear-gradient(145deg, #fd79a8, #e84393); }
-        .color-cyan { background: linear-gradient(145deg, #00cec9, #0984e3); }
 
         /* 歷史記錄區 */
         /* 管理員區 */
@@ -840,14 +840,14 @@
         }
 
         /* 大型棋子樣式 */
+        .rolling-chip.color-black { background: linear-gradient(145deg, #2d2d2d, #1a1a1a); }
+        .rolling-chip.color-white { background: linear-gradient(145deg, #ffffff, #e0e0e0); }
         .rolling-chip.color-red { background: linear-gradient(145deg, #e74c3c, #c0392b); }
-        .rolling-chip.color-blue { background: linear-gradient(145deg, #3498db, #2980b9); }
         .rolling-chip.color-green { background: linear-gradient(145deg, #2ecc71, #27ae60); }
+        .rolling-chip.color-blue { background: linear-gradient(145deg, #3498db, #2980b9); }
+        .rolling-chip.color-pink { background: linear-gradient(145deg, #fd79a8, #e84393); }
         .rolling-chip.color-yellow { background: linear-gradient(145deg, #f1c40f, #f39c12); }
         .rolling-chip.color-purple { background: linear-gradient(145deg, #9b59b6, #8e44ad); }
-        .rolling-chip.color-orange { background: linear-gradient(145deg, #e67e22, #d35400); }
-        .rolling-chip.color-pink { background: linear-gradient(145deg, #fd79a8, #e84393); }
-        .rolling-chip.color-cyan { background: linear-gradient(145deg, #00cec9, #0984e3); }
     </style>
 </head>
 <body>
@@ -1002,14 +1002,14 @@
 
         // ============ 遊戲配置 ============
         const COLORS = [
+            { id: 'black', name: '黑色', class: 'color-black' },
+            { id: 'white', name: '白色', class: 'color-white' },
             { id: 'red', name: '紅色', class: 'color-red' },
-            { id: 'blue', name: '藍色', class: 'color-blue' },
             { id: 'green', name: '綠色', class: 'color-green' },
-            { id: 'yellow', name: '黃色', class: 'color-yellow' },
-            { id: 'purple', name: '紫色', class: 'color-purple' },
-            { id: 'orange', name: '橘色', class: 'color-orange' },
+            { id: 'blue', name: '藍色', class: 'color-blue' },
             { id: 'pink', name: '粉紅', class: 'color-pink' },
-            { id: 'cyan', name: '青色', class: 'color-cyan' }
+            { id: 'yellow', name: '黃色', class: 'color-yellow' },
+            { id: 'purple', name: '紫色', class: 'color-purple' }
         ];
 
         // ============ 狀態管理 ============
@@ -1717,14 +1717,14 @@
         
         function getColorHex(colorId) {
             const colorMap = {
+                black: '#2d2d2d',
+                white: '#ffffff',
                 red: '#e74c3c',
-                blue: '#3498db',
                 green: '#2ecc71',
-                yellow: '#f1c40f',
-                purple: '#9b59b6',
-                orange: '#e67e22',
+                blue: '#3498db',
                 pink: '#fd79a8',
-                cyan: '#00cec9'
+                yellow: '#f1c40f',
+                purple: '#9b59b6'
             };
             return colorMap[colorId] || '#fff';
         }
